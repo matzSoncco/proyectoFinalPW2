@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Préstamos de EPP{% endblock %}
+
+{% block content %}
+<section class="container mt-4">
+    <div class="row mb-4">
+        <div class="col text-center">
+            <h2 class="titulo display-4">Entrega de EPPs</h2>
+        </div>
+    </div>
+    <nav class="row justify-content-between mb-4">
+        <div class="col-md-6">
+            <form class="form-inline" method="get" action="{% url 'ppe_loan_list' %}">
+                <input type="text" class="form-control mr-2" name="q" placeholder="Buscar por nombre" value="{{ query|default_if_none:'' }}">
+                <button class="btn btn-primary" type="submit">Buscar</button>
+            </form>
+        </div>
+        <div class="col-md-6 text-right">
+            <ul class="list-inline">
+                <li class="list-inline-item"><a href="{% url 'add_ppe_loan' %}" class="btn btn-success">Asignar EPPs</a></li>
+                <li class="list-inline-item"><a href="{% url 'ppe' %}" class="btn btn-secondary">Volver</a></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered tablaEPP">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Nombre Trabajador</th>
+                    <th>Apellido Trabajador</th>
+                    <th>Fecha asignación</th>
+                    <th>EPP asignado</th>
+                    <th>Fecha nueva de asignación</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ppe_loans %}
+                <tr>
+                    <td>{{ item.worker.name }}</td>
+                    <td>{{ item.worker.surname }}</td>
+                    <td>{{ item.ppe.name }}</td>
+                    <td>{{ item.loanDate }}</td>
+                    <td>{{ item.newLoanDate }}</td>
+                    <td>
+                        <button 
+                            class="btn btn-info btn-sm" 
+                            onclick="openDetailsWindow(this)"
+                            data-dni="{{ item.worker.dni }}"
+                            data-nombres="{{ item.worker.name }}"
+                            data-epp="{{ item.ppe.name }}"
+                            data-apellidos="{{ item.worker.surname }}"
+                            data-fecha-asignacion="{{ item.loanDate }}"
+                            data-fecha-nuevo="{{ item.newLoanDate }}"
+                            data-responsable="{{ item.manager }}"
+                            data-descripcion="{{ item.description }}"
+                        >Detalles</button>
+                        <a href="{% url 'modify_ppe_loan' item.idPpeLoan %}" class="btn btn-info btn-sm">Editar</a>
+                        <a  class="btn btn-danger btn-sm"
+                            onclick="openDeleteWindow(this)"
+                            data-url="{% url 'delete_ppe_loan' item.idPpeLoan %}"
+                            data-id="{{ item.idPpeLoan }}"
+                        >Eliminar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+<script>
+    function openDeleteWindow(button) {
+        const deleteUrl = button.getAttribute('data-url');
+        const deleteId = button.getAttribute('data-id');
+        const rowToDelete = button.closest('tr');
+    
+        const confirmation = confirm("¿Estás seguro que deseas eliminar la asignación?");
+        if (confirmation) {
+            fetch(deleteUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'), // Asegúrate de tener esta función para obtener el token CSRF
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: deleteId })
+            })
+            .then(response => {
+                if (response.ok) {
+                    rowToDelete.remove(); // Elimina la fila de la tabla
+                } else {
+                    alert("Hubo un problema al intentar eliminar la asignación.");
+                }
+            })
+            .catch(error => console.error('Error al eliminar:', error));
+        }
+    }
+    
+    // Función auxiliar para obtener el token CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                // Buscar el token CSRF en las cookies
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function openDetailsWindow(button) {
+        // Obtener los datos del botón
+        const dni = button.getAttribute('data-dni');
+        const nombres = button.getAttribute('data-nombres');
+        const apellidos = button.getAttribute('data-apellidos');
+        const epp = button.getAttribute('data-epp');
+        const fechaAsignacion = button.getAttribute('data-fecha-asignacion');
+        const fechaNuevaAsignacion = button.getAttribute('data-fecha-nuevo');
+        const responsable = button.getAttribute('data-responsable');
+        const descripcion = button.getAttribute('data-descripcion');
+    
+        // Crear contenido HTML para la nueva ventana
+        const newWindowContent = `
+            <html>
+                <head>
+                    <title>Detalles del Préstamo</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; }
+                        .details-container { padding: 20px; }
+                        .details-container h2 { text-align: center; }
+                        .details-container p { margin: 10px 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="details-container">
+                        <h2>Detalles del Préstamo</h2>
+                        <p><strong>DNI del Trabajador:</strong> ${dni}</p>
+                        <p><strong>Nombres:</strong> ${nombres}</p>
+                        <p><strong>Apellidos:</strong> ${apellidos}</p>
+                        <p><strong>EPP:</strong> ${epp}</p>
+                        <p><strong>Fecha de Asignación:</strong> ${fechaAsignacion}</p>
+                        <p><strong>Fecha de nueva Asignación:</strong> ${fechaNuevaAsignacion}</p>
+                        <p><strong>Responsable:</strong> ${responsable}</p>
+                        <p><strong>Descripción:</strong> ${descripcion}</p>
+                    </div>
+                </body>
+            </html>
+            `;
+        
+            // Abrir una nueva ventana y escribir el contenido HTML
+            const newWindow = window.open('', '', 'width=600,height=400');
+            newWindow.document.write(newWindowContent);
+            newWindow.document.close(); // Necesario para algunos navegadores
+        }
+</script>
+{% endblock %}
